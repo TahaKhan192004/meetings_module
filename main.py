@@ -5,6 +5,7 @@ from supabase import create_client
 from config import SUPABASE_URL, SUPABASE_KEY, WORK_START_HOUR, WORK_END_HOUR
 import httpx
 from config import MAKE_WEBHOOK_URL
+from services.gemini_context import generate_meeting_context
 
 # inside book_meeting(), after supabase insert:
 from fastapi.middleware.cors import CORSMiddleware
@@ -75,16 +76,20 @@ def get_available(day: str):
     return {"available_slots": slots}
 
 @app.post("/calendar/book")
-def book_meeting(client_name: str, client_email: str, start: str, end: str):
+def book_meeting(client_name: str, client_email: str, start: str, end: str, purpose: str, user_input: str = ""):
     start_dt = datetime.fromisoformat(start)
     end_dt = datetime.fromisoformat(end)
+
+    # Generate AI context if user provided input
+    extra_context = ""
+    if user_input.strip():
+        extra_context = generate_meeting_context(purpose, user_input)
 
     try:
         meet_link, event_id = create_event(client_name, client_email, start_dt, end_dt)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    #Store in Supabase
     supabase.table("meetings").insert({
         "client_name": client_name,
         "client_email": client_email,
@@ -92,7 +97,9 @@ def book_meeting(client_name: str, client_email: str, start: str, end: str):
         "end_time": end_dt.isoformat(),
         "google_event_id": event_id,
         "meet_link": meet_link,
-        "status": "upcoming"
+        "status": "upcoming",
+        "purpose": purpose,
+        "extra_context": extra_context
     }).execute()
 
     try:
@@ -101,9 +108,19 @@ def book_meeting(client_name: str, client_email: str, start: str, end: str):
             "client_email": client_email,
             "meet_link": meet_link,
             "start_time": start_dt.strftime("%B %d, %Y at %I:%M %p"),
-            "end_time": end_dt.strftime("%I:%M %p")
+            "end_time": end_dt.strftime("%I:%M %p"),
         }, timeout=10)
     except Exception:
-        pass  # Don't fail the booking if webhook fails
-    
+        pass
+
     return {"meet_link": meet_link}
+
+
+
+@app.post("/meeting/generate-context")
+def generate_context(purpose: str, user_input: str):
+    try:
+        result = generate_meeting_context(purpose, user_input)
+        return {"context": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

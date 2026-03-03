@@ -124,3 +124,30 @@ def generate_context(purpose: str, user_input: str):
         return {"context": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/meetings/todays-reminder")
+def get_todays_meetings():
+    today = datetime.now().date()
+    start = datetime.combine(today, time(0, 0, 0)).isoformat()
+    end = datetime.combine(today, time(23, 59, 59)).isoformat()
+
+    result = supabase.table("meetings") \
+        .select("client_name, client_email, meet_link, start_time, end_time") \
+        .gte("start_time", start) \
+        .lte("start_time", end) \
+        .eq("status", "upcoming") \
+        .execute()
+
+    meetings = []
+    for row in result.data:
+        start_dt = datetime.fromisoformat(row["start_time"].replace("Z", ""))
+        end_dt = datetime.fromisoformat(row["end_time"].replace("Z", ""))
+        meetings.append({
+            "client_name": row["client_name"],
+            "client_email": row["client_email"],
+            "meet_link": row["meet_link"],
+            "start_time": start_dt.strftime("%B %d, %Y at %I:%M %p"),
+            "end_time": end_dt.strftime("%I:%M %p")
+        })
+
+    return {"meetings": meetings}

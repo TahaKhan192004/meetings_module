@@ -36,10 +36,7 @@ Recruiter's rough input:
 {user_input}
 
 Return a well-structured Markdown document with the following sections:
-- **Position Summary** — brief description of the role
-- **Required Skills** — bullet points of must-have technical skills
-- **Experience Level** — expected years and type of experience
-- **Technical Questions** — 5 to 7 relevant technical interview questions suited for this role
+- **Technical Questions** — 5 to 7 relevant technical interview questions suited for this role with one line answers
 - **Evaluation Criteria** — what to look for in a strong candidate
 
 Keep it sharp, technical, and relevant.

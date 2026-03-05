@@ -1,3 +1,4 @@
+from click import prompt
 from google import genai
 from config import GEMINI_API_KEY
 
@@ -26,8 +27,8 @@ Return a well-structured Markdown document with the following sections:
 
 Keep it concise, professional, and actionable.
 """
-    response = _generate(prompt)
-    return response.text
+   
+    return  _generate(prompt)
 
 
 def generate_technical_interview_context(user_input: str) -> str:
@@ -45,8 +46,7 @@ Return a well-structured Markdown document with the following sections:
 
 Keep it sharp, technical, and relevant.
 """
-    response = _generate(prompt)
-    return response.text
+    return  _generate(prompt)
 
 
 def generate_sales_demo_context(user_input: str) -> str:
@@ -68,8 +68,7 @@ Return a well-structured Markdown document with the following sections:
 
 Keep it persuasive, confident, and client-focused.
 """
-    response = _generate(prompt)
-    return response.text
+    return  _generate(prompt)
 
 
 def generate_support_call_context(user_input: str) -> str:
@@ -90,8 +89,7 @@ Return a well-structured Markdown document with the following sections:
 
 Keep it clear, methodical, and solution-oriented.
 """
-    response = _generate(prompt)
-    return response.text
+    return  _generate(prompt)
 
 
 # Router function — call this from main.py

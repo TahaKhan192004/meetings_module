@@ -1,10 +1,14 @@
-import google.generativeai as genai
+from google import genai
 from config import GEMINI_API_KEY
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
+client = genai.Client(api_key=GEMINI_API_KEY)
 
-
+def _generate(prompt: str) -> str:
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt
+    )
+    return response.text
 def generate_client_consultation_context(user_input: str) -> str:
     prompt = f"""
 You are a professional business analyst preparing notes for a client consultation meeting.
@@ -22,7 +26,7 @@ Return a well-structured Markdown document with the following sections:
 
 Keep it concise, professional, and actionable.
 """
-    response = model.generate_content(prompt)
+    response = _generate(prompt)
     return response.text
 
 
@@ -41,7 +45,7 @@ Return a well-structured Markdown document with the following sections:
 
 Keep it sharp, technical, and relevant.
 """
-    response = model.generate_content(prompt)
+    response = _generate(prompt)
     return response.text
 
 
@@ -64,7 +68,7 @@ Return a well-structured Markdown document with the following sections:
 
 Keep it persuasive, confident, and client-focused.
 """
-    response = model.generate_content(prompt)
+    response = _generate(prompt)
     return response.text
 
 
@@ -86,7 +90,7 @@ Return a well-structured Markdown document with the following sections:
 
 Keep it clear, methodical, and solution-oriented.
 """
-    response = model.generate_content(prompt)
+    response = _generate(prompt)
     return response.text
 
 

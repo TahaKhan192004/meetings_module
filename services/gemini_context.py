@@ -1,3 +1,4 @@
+from click import prompt
 from google import genai
 from config import GEMINI_API_KEY
 
@@ -23,11 +24,17 @@ Return a well-structured Markdown document with the following sections:
 - **Key Requirements** — bullet points of the main requirements
 - **Questions to Ask** — smart clarifying questions to ask in the meeting
 - **Suggested Approach** — a brief recommended approach or solution direction
-
+- **Potential Challenges** — any red flags or challenges to be aware of
+- **Desired Outcome** — what a successful meeting looks like
+- **Next Steps** — recommended next steps after the meeting
+- **Additional Notes** — any other relevant insights or considerations
+- **Should be well formatted and easy to read during the meeting. Use bullet points, bolding, and clear sections to organize the information.
+- **Avoid generic or vague statements — be specific and actionable based on the client's input.
+- **Pure markdown format only, no explanations or commentary outside the markdown.
 Keep it concise, professional, and actionable.
 """
-    response = _generate(prompt)
-    return response.text
+   
+    return  _generate(prompt)
 
 
 def generate_technical_interview_context(user_input: str) -> str:
@@ -42,11 +49,12 @@ Recruiter's rough input:
 Return a well-structured Markdown document with the following sections:
 - **Technical Questions** — 5 to 7 relevant technical interview questions suited for this role with one line answers
 - **Evaluation Criteria** — what to look for in a strong candidate
+- **Pure markdown format only, no explanations or commentary outside the markdown.
+- **Keep it concise, focused on technical skills, and relevant to the role. Avoid generic questions and focus on what matters for this specific position.**
 
 Keep it sharp, technical, and relevant.
 """
-    response = _generate(prompt)
-    return response.text
+    return  _generate(prompt)
 
 
 def generate_sales_demo_context(user_input: str) -> str:
@@ -65,11 +73,13 @@ Return a well-structured Markdown document with the following sections:
 - **Demo Talking Points** — key points to highlight during the demo
 - **Anticipated Objections & Responses** — common objections and how to handle them
 - **Desired Outcome** — what a successful meeting looks like
+- **Next Steps** — recommended next steps after the meeting
+- **Additional Notes** — any other relevant insights or considerations
+- **Pure markdown format only, no explanations or commentary outside the markdown.**
 
 Keep it persuasive, confident, and client-focused.
 """
-    response = _generate(prompt)
-    return response.text
+    return  _generate(prompt)
 
 
 def generate_support_call_context(user_input: str) -> str:
@@ -90,8 +100,7 @@ Return a well-structured Markdown document with the following sections:
 
 Keep it clear, methodical, and solution-oriented.
 """
-    response = _generate(prompt)
-    return response.text
+    return  _generate(prompt)
 
 
 # Router function — call this from main.py

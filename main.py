@@ -6,7 +6,7 @@ from config import SUPABASE_URL, SUPABASE_KEY, WORK_START_HOUR, WORK_END_HOUR
 import httpx
 from config import MAKE_WEBHOOK_URL
 from services.gemini_context import generate_meeting_context
-
+from fastapi import BackgroundTasks
 # inside book_meeting(), after supabase insert:
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -75,15 +75,29 @@ def get_available(day: str):
 
     return {"available_slots": slots}
 
+
+
+def save_context_to_supabase(event_id: str, purpose: str, user_input: str):
+    """Runs in background after response is returned"""
+    try:
+        context = generate_meeting_context(purpose, user_input)
+        supabase.table("meetings").update({
+            "extra_context": context
+        }).eq("google_event_id", event_id).execute()
+    except Exception as e:
+        print(f"Background context generation failed: {e}")
+
+
 @app.post("/calendar/book")
-def book_meeting(client_name: str, client_email: str, start: str, end: str, purpose: str, user_input: str = ""):
+def book_meeting(
+    client_name: str, client_email: str,
+    start: str, end: str,
+    purpose: str, user_input: str = "",
+    contact_number: str = None,
+    background_tasks: BackgroundTasks = None
+):
     start_dt = datetime.fromisoformat(start)
     end_dt = datetime.fromisoformat(end)
-
-    # Generate AI context if user provided input
-    extra_context = ""
-    if user_input.strip():
-        extra_context = generate_meeting_context(purpose, user_input)
 
     try:
         meet_link, event_id = create_event(client_name, client_email, start_dt, end_dt)
@@ -97,10 +111,15 @@ def book_meeting(client_name: str, client_email: str, start: str, end: str, purp
         "end_time": end_dt.isoformat(),
         "google_event_id": event_id,
         "meet_link": meet_link,
+        "contact_number": contact_number,
         "status": "upcoming",
         "purpose": purpose,
-        "extra_context": extra_context
+        "extra_context": None   # Will be filled by background task
     }).execute()
+
+    # Queue context generation — runs AFTER response is sent
+    if user_input.strip():
+        background_tasks.add_task(save_context_to_supabase, event_id, purpose, user_input)
 
     try:
         httpx.post(MAKE_WEBHOOK_URL, json={
@@ -114,16 +133,6 @@ def book_meeting(client_name: str, client_email: str, start: str, end: str, purp
         pass
 
     return {"meet_link": meet_link}
-
-
-
-@app.post("/meeting/generate-context")
-def generate_context(purpose: str, user_input: str):
-    try:
-        result = generate_meeting_context(purpose, user_input)
-        return {"context": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/meetings/todays-reminder")
 def get_todays_meetings():
@@ -151,3 +160,38 @@ def get_todays_meetings():
         })
 
     return {"meetings": meetings}
+
+@app.get("/meetings/getAll")
+def get_todays_meetings():
+    result = supabase.table("meetings")\
+            .select("*").execute()
+    return {"meetings": result.data}   
+
+@app.post("/meetings/updateStatus")
+def update_meeting_status(event_id: str, status: str):  
+    if status not in ["upcoming", "completed", "canceled"]:
+        raise HTTPException(status_code=400, detail="Invalid status value")
+    
+    supabase.table("meetings").update({
+        "status": status
+    }).eq("google_event_id", event_id).execute()
+
+    return {"message": "Status updated successfully"}
+
+@app.post("/meetings/sendReminder")
+def send_meeting_reminder(event_id: str):
+    result = supabase.table("meetings").select("client_name, client_email, meet_link, start_time") \
+        .eq("google_event_id", event_id) \
+        .execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    meeting = result.data[0]
+    try:    
+        httpx.post(MAKE_WEBHOOK_URL, json={
+            "client_name": meeting["client_name"],
+            "client_email": meeting["client_email"],
+            "meet_link": meeting["meet_link"],
+            "start_time": datetime.fromisoformat(meeting["start_time"].replace("Z", "")).strftime("%B %d, %Y at %I:%M %p"),
+        }, timeout=10)
+    except Exception:
+        pass            

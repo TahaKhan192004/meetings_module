@@ -36,14 +36,37 @@ def get_month(year: int, month: int):
 
 @app.get("/calendar/available")
 def get_available(day: str):
-    """
-    day: YYYY-MM-DD
-    """
     date_obj = datetime.fromisoformat(day)
-    start_day = datetime.combine(date_obj.date(), time(WORK_START_HOUR, 0))
-    end_day = datetime.combine(date_obj.date(), time(WORK_END_HOUR, 0))
 
-    # Busy slots from Google Calendar
+    # 1) Check per-date override
+    o = supabase.table("meeting_date_overrides") \
+        .select("enabled,start_time,end_time") \
+        .eq("date", day) \
+        .execute()
+
+    if o.data:
+        enabled = o.data[0]["enabled"]
+        if not enabled:
+            return {"available_slots": []}
+        start_str = o.data[0]["start_time"]
+        end_str   = o.data[0]["end_time"]
+    else:
+        # 2) Fall back to weekly defaults
+        day_name = date_obj.strftime("%A").lower()
+        d = supabase.table("meeting_settings") \
+            .select("enabled,start_time,end_time") \
+            .eq("day", day_name) \
+            .execute()
+        if not d.data or not d.data[0]["enabled"]:
+            return {"available_slots": []}
+        start_str = d.data[0]["start_time"]
+        end_str   = d.data[0]["end_time"]
+
+    start_day = datetime.combine(date_obj.date(), time.fromisoformat(start_str))
+    end_day   = datetime.combine(date_obj.date(), time.fromisoformat(end_str))
+
+    # then keep your busy slots + overlap logic as-is
+     # Busy slots from Google Calendar
     busy = get_busy_slots(start_day, end_day)
 
     # Busy slots from Supabase (catches bookings not yet synced to Google)
@@ -126,6 +149,7 @@ def book_meeting(
             "client_name": client_name,
             "client_email": client_email,
             "meet_link": meet_link,
+            "purpose":"invite",
             "start_time": start_dt.strftime("%B %d, %Y at %I:%M %p"),
             "end_time": end_dt.strftime("%I:%M %p"),
         }, timeout=10)
@@ -155,6 +179,7 @@ def get_todays_meetings():
             "client_name": row["client_name"],
             "client_email": row["client_email"],
             "meet_link": row["meet_link"],
+            "purpose":"reminder",
             "start_time": start_dt.strftime("%B %d, %Y at %I:%M %p"),
             "end_time": end_dt.strftime("%I:%M %p")
         })
@@ -191,7 +216,9 @@ def send_meeting_reminder(event_id: str):
             "client_name": meeting["client_name"],
             "client_email": meeting["client_email"],
             "meet_link": meeting["meet_link"],
+            "purpose":"reminder",
             "start_time": datetime.fromisoformat(meeting["start_time"].replace("Z", "")).strftime("%B %d, %Y at %I:%M %p"),
         }, timeout=10)
     except Exception:
         pass            
+  
